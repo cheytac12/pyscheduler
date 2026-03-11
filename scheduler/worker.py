@@ -14,15 +14,16 @@ logger = logging.getLogger(__name__)
 
 
 class WorkerPool:
-    def __init__(self, max_workers: int, event_bus: EventBus) -> None:
+    def __init__(self, max_workers: int, event_bus: EventBus, job_timeout: float = 30.0) -> None:
         self._executor = ThreadPoolExecutor(max_workers=max_workers)
         self._event_bus = event_bus
+        self._job_timeout = job_timeout
 
     def submit(self, job: Job, callback: Callable[[JobResult], None]) -> None:
         """Submit *job* for execution. *callback* is called with the JobResult when done."""
         def _task() -> None:
             self._event_bus.publish(Event(type=EventType.JOB_STARTED, job_id=job.id))
-            result = execute_job(job)
+            result = execute_job(job, timeout=self._job_timeout)
             event_type = EventType.JOB_COMPLETED if result.success else EventType.JOB_FAILED
             self._event_bus.publish(Event(type=event_type, job_id=job.id, data={"success": result.success}))
             callback(result)

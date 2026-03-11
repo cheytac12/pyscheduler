@@ -11,5 +11,6 @@ class Config(BaseSettings):
     max_workers: int = 4
     log_level: str = "INFO"
     log_json: bool = False
+    job_timeout: float = 30.0
 
     model_config = {"env_prefix": "SCHEDULER_"}

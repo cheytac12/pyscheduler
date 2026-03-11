@@ -136,7 +136,7 @@ def run(ctx: click.Context) -> None:
     config = ctx.obj["config"]
     storage = SQLiteStorage(db_path=config.db_path)
     event_bus = EventBus()
-    worker_pool = WorkerPool(max_workers=config.max_workers, event_bus=event_bus)
+    worker_pool = WorkerPool(max_workers=config.max_workers, event_bus=event_bus, job_timeout=config.job_timeout)
     scheduler = Scheduler(
         config=config,
         storage=storage,

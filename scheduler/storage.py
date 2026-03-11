@@ -30,6 +30,8 @@ class SQLiteStorage:
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS jobs (
                     id TEXT PRIMARY KEY,
+                    status TEXT NOT NULL,
+                    next_run_time TEXT NOT NULL,
                     data TEXT NOT NULL
                 )
             """)
@@ -44,8 +46,8 @@ class SQLiteStorage:
     def add_job(self, job: Job) -> None:
         with self._connect() as conn:
             conn.execute(
-                "INSERT INTO jobs (id, data) VALUES (?, ?)",
-                (job.id, job.model_dump_json()),
+                "INSERT INTO jobs (id, status, next_run_time, data) VALUES (?, ?, ?, ?)",
+                (job.id, job.status.value, job.next_run_time.isoformat(), job.model_dump_json()),
             )
 
     def get_job(self, job_id: str) -> Job | None:
@@ -61,8 +63,8 @@ class SQLiteStorage:
     def update_job(self, job: Job) -> None:
         with self._connect() as conn:
             conn.execute(
-                "UPDATE jobs SET data = ? WHERE id = ?",
-                (job.model_dump_json(), job.id),
+                "UPDATE jobs SET status = ?, next_run_time = ?, data = ? WHERE id = ?",
+                (job.status.value, job.next_run_time.isoformat(), job.model_dump_json(), job.id),
             )
 
     def delete_job(self, job_id: str) -> None:
@@ -73,13 +75,11 @@ class SQLiteStorage:
         """Return all PENDING jobs whose next_run_time is at or before now."""
         now_iso = datetime.now(timezone.utc).isoformat()
         with self._connect() as conn:
-            rows = conn.execute("SELECT data FROM jobs").fetchall()
-        due = []
-        for row in rows:
-            job = Job.model_validate_json(row["data"])
-            if job.status == JobStatus.PENDING and job.next_run_time.isoformat() <= now_iso:
-                due.append(job)
-        return due
+            rows = conn.execute(
+                "SELECT data FROM jobs WHERE status = ? AND next_run_time <= ?",
+                (JobStatus.PENDING.value, now_iso),
+            ).fetchall()
+        return [Job.model_validate_json(row["data"]) for row in rows]
 
     def save_result(self, result: JobResult) -> None:
         with self._connect() as conn:
